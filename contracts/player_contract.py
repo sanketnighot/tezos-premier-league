@@ -5,25 +5,24 @@ class PlayerContract(sp.Contract):
         self.init(
             nickname=nickname,
             nfts=sp.list(),
-            level=sp.nat(0),
-            tier=sp.nat(0),
-            tokens=sp.nat(0)
+            level=sp.int(0),
+            tier=sp.int(0),
+            tokens=sp.int(0)
         )
 
     @sp.entry_point
-    def editPlayer(self, nickname,nft):
-        self.data.nickname = nickname
-        self.data.nfts.push(nft)
+    def editPlayer(self, data):
+        self.data.nickname = data.nickname
+        self.data.nfts.push(data.nft)
 
     @sp.entry_point
-    def sendToken(self, player_address, tokens):
-        # sp.verify((self.data.tokens - tokens) >= 0, message="Tokens Insufficient"​)
+    def sendToken(self, data):
+        # sp.verify((self.data.tokens - tkns) >= 0, message="Tokens Insufficient"​)
 
-        data_type = sp.TRecord(tokens=sp.TNat, player_contract=sp.TContract(sp.TNat))
-        player2_contract = sp.contract(data_type, player_address, "receive_token").open_some()
-        self.data.tokens -= tokens
-
-        sp.transfer(tokens, sp.mutez(0), player2_contract)
+        player2_contract = sp.contract(sp.TInt, data.player_address, "receive_token").open_some()
+        self.data.tokens -= data.tokens
+        
+        sp.transfer(data.tokens, sp.mutez(0), player2_contract)
 
     @sp.entry_point
     def receive_token(self, tokens):
@@ -59,6 +58,18 @@ class PlayerContract(sp.Contract):
 def test():
     scenario = sp.test_scenario()
 
+    user1 = PlayerContract("User 1")
+    user2 = PlayerContract("User 2")
 
-# A a compilation target (produces compiled code)
-# sp.add_compilation_target("player_contract_compiled", PlayerContract())
+    scenario += user1
+    scenario += user2
+
+    scenario += user1.handleGameLevel(10)
+    scenario += user1.handleGameTier(5)
+    
+    scenario.verify(user1.data.nickname == "User 1" )
+
+    data_to_be_sent = sp.record(player_address=user2.address,tokens=50)
+    scenario += user1.sendToken(data_to_be_sent)
+
+    scenario.verify(user2.data.tokens == 50)
